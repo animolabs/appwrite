@@ -23,16 +23,33 @@ class Confluence extends OAuth2
 
     public function getLoginURL(): string
     {
-        $url = $this->endpoint . '[LOGIN_URL_STUFF]';
-        return $url;
+        return 'https://auth.atlassian.com/authorize?'. \http_build_query([
+            'audience' => 'api.atlassian.com',
+            'client_id' => $this->appID,
+            'scope' => \implode(' ', $this->getScopes()),
+            'redirect_uri' => $this->callback,
+            'state' => $this->state,
+            'response_type' => 'code',
+            'prompt' => 'consent'
+        ]);
     }
 
     protected function getTokens(string $code): array
     {
         if (empty($this->tokens)) {
-            // TODO: Fire request to oauth API to generate access_token
-            // Make sure to use '$this->getScopes()' to include all scopes properly
-            $this->tokens = ["[FETCH TOKEN RESPONSE]"];
+            $headers = ['Content-Type: application/json;charset=UTF-8'];
+            $this->tokens = \json_decode($this->request(
+                'POST',
+                'https://auth.atlassian.com/oauth/token',
+                $headers,
+                \http_build_query([
+                    'code' => $code,
+                    'client_id' => $this->appID,
+                    'client_secret' => $this->appSecret,
+                    'redirect_uri' => $this->callback,
+                    'grant_type' => 'authorization_code'
+                ])
+            ), true);
         }
 
         return $this->tokens;
@@ -41,7 +58,22 @@ class Confluence extends OAuth2
     public function refreshTokens(string $refreshToken): array
     {
         // TODO: Fire request to oauth API to generate access_token using refresh token
-        $this->tokens = ["[FETCH TOKEN RESPONSE]"];
+        $headers = ['Content-Type: application/json;charset=UTF-8'];
+        $this->tokens = \json_decode($this->request(
+            'POST',
+            'https://auth.atlassian.com/oauth/token',
+            $headers,
+            \http_build_query([
+                'client_id' => $this->appID,
+                'client_secret' => $this->appSecret,
+                'grant_type' => 'refresh_token',
+                'refresh_token' => $refreshToken
+            ])
+        ), true);
+
+        if (empty($this->tokens['refresh_token'])) {
+            $this->tokens['refresh_token'] = $refreshToken;
+        }
 
         return $this->tokens;
     }
@@ -50,49 +82,38 @@ class Confluence extends OAuth2
     {
         $user = $this->getUser($accessToken);
 
-        // TODO: Pick user ID from $user response
-        $userId = "[USER ID]";
-
-        return $userId;
+        return $user['user_id'] ?? '';
     }
 
     public function getUserEmail(string $accessToken): string
     {
         $user = $this->getUser($accessToken);
 
-        // TODO: Pick user email from $user response
-        $userEmail = "[USER EMAIL]";
-
-        return $userEmail;
+        return $user['email'] ?? '';
     }
 
     public function isEmailVerified(string $accessToken): bool
     {
-        $user = $this->getUser($accessToken);
+        $email = $this->getUserEmail($accessToken);
 
-        // TODO: Pick user verification status from $user response
-        $isVerified = "[USER VERIFICATION STATUS]";
-
-        return $isVerified;
+        return !empty($email);
     }
 
     public function getUserName(string $accessToken): string
     {
         $user = $this->getUser($accessToken);
 
-        // TODO: Pick username from $user response
-        $username = "[USERNAME]";
-
-        return $username;
+        return $user['name'] ?? '';
     }
 
     protected function getUser(string $accessToken): array
     {
         if (empty($this->user)) {
-            // TODO: Fire request to oauth API to get information about users
-            $this->user = "[FETCH USER RESPONSE]";
+            $user = $this->request('GET', 'https://api.atlassian.com/me?' . \http_build_query([
+                'Accept' => 'application/json'
+            ]));
+            $this->user = \json_decode($user, true);
         }
-
         return $this->user;
     }
 }
