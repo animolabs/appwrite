@@ -5,7 +5,8 @@ namespace Appwrite\Auth\OAuth2;
 use Appwrite\Auth\OAuth2;
 
 // Reference Material
-// [DOCS FROM OAUTH PROVIDER]
+// https://github.com/animolabs/appwrite/blob/master/docs/tutorials/add-oauth2-provider.md
+// https://developer.atlassian.com/cloud/confluence/oauth-2-3lo-apps/
 
 class Confluence extends OAuth2
 {
@@ -109,9 +110,7 @@ class Confluence extends OAuth2
     protected function getUser(string $accessToken): array
     {
         if (empty($this->user)) {
-            $user = $this->request('GET', 'https://api.atlassian.com/me?' . \http_build_query([
-                'Accept' => 'application/json'
-            ]));
+            $user = $this->request('GET', 'https://api.atlassian.com/me' , ['Authorization: Bearer ' . $accessToken]);
             $this->user = \json_decode($user, true);
         }
         return $this->user;
